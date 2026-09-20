@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ flower.name }} / Bloom Atlas{% endblock %}
+{% block content %}
+<article class="detail-page accent-{{ flower.accent }}">
+  <div class="detail-hero page-width">
+    <a class="back-link" href="{{ url_for('index') }}">← Back to collection</a>
+    <div class="detail-hero-grid">
+      <div class="detail-title">
+        <p class="eyebrow">Flower profile / {{ flower.type }}</p>
+        <h1>{{ flower.name }}</h1>
+        <p class="detail-location">{{ flower.location }}</p>
+      </div>
+      <div class="detail-image">
+        <img src="{{ flower.image }}" alt="{{ flower.name }} flower">
+        <span class="image-caption">FIELD VIEW / {{ flower.bloom_season }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="detail-content page-width">
+    <div class="detail-summary">
+      <span class="summary-mark">↳</span>
+      <p>{{ flower.summary }}</p>
+    </div>
+    <div class="detail-columns">
+      <div>
+        <p class="eyebrow">At a glance</p>
+        <div class="stat-list">
+          <div><span>Flower color</span><strong>{{ flower.color }}</strong></div>
+          <div><span>Bloom season</span><strong>{{ flower.bloom_season }}</strong></div>
+          <div><span>Typical height</span><strong>{{ flower.height }}</strong></div>
+          <div><span>Origin</span><strong>{{ flower.origin }}</strong></div>
+        </div>
+      </div>
+      <div class="detail-description">
+        <p class="eyebrow">Growing notes</p>
+        <p>{{ flower.description }}</p>
+        <div class="highlight-list">
+          <span><b>+</b>Sunlight: {{ flower.sunlight }}</span>
+          <span><b>+</b>Watering: {{ flower.water }}</span>
+          {% for highlight in flower.highlights %}<span><b>+</b>{{ highlight }}</span>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+{% endblock %}

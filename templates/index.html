@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Flowers / Bloom Atlas{% endblock %}
+{% block content %}
+<section class="intro page-width">
+  <div class="intro-copy">
+    <p class="eyebrow">01 / Flower collection</p>
+    <h1>Flowers<br><em>in season.</em></h1>
+    <p class="lede">A visual field guide to flowers worth knowing. Explore their colors, seasons, origins, and the small rituals that help them thrive.</p>
+  </div>
+  <div class="intro-stamp" aria-label="Portfolio summary">
+    <span class="stamp-number">{{ "%02d"|format(flowers|length) }}</span>
+    <span class="stamp-label">flowers<br>mapped</span>
+  </div>
+</section>
+
+<section class="directory page-width" aria-labelledby="directory-title">
+  <div class="section-heading">
+    <h2 id="directory-title">The directory</h2>
+    <span class="mono-label">SORTED BY SEASON <span aria-hidden="true">↘</span></span>
+  </div>
+  <div class="plant-grid">
+    {% for flower in flowers %}
+    <a class="plant-card accent-{{ flower.accent }}" href="{{ url_for('flower_detail', slug=flower.slug) }}">
+      <div class="card-image-wrap">
+        <img src="{{ flower.image }}" alt="{{ flower.name }} flower" loading="lazy">
+        <span class="card-index">{{ "%02d"|format(loop.index) }}</span>
+        <span class="status status-{{ flower.status|lower|replace(' ', '-') }}">{{ flower.status }}</span>
+      </div>
+      <div class="card-body">
+        <div>
+          <p class="card-type">{{ flower.type }}</p>
+          <h3>{{ flower.name }}</h3>
+          <p class="card-location">{{ flower.location }}</p>
+        </div>
+        <div class="card-arrow" aria-hidden="true">↗</div>
+      </div>
+      <div class="card-capacity"><span>Bloom season</span><strong>{{ flower.bloom_season }}</strong></div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
