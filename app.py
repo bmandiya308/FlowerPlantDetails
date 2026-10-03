@@ -1,7 +1,22 @@
-from flask import Flask, abort, render_template
+import os
+import sqlite3
+import uuid
+
+from flask import Flask, abort, flash, redirect, render_template, request, send_from_directory, url_for
+from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=os.environ.get("SECRET_KEY", "local-development-only"),
+    DATABASE=os.path.join(app.instance_path, "bloom-social.sqlite3"),
+    UPLOAD_FOLDER=os.path.join(app.instance_path, "uploads"),
+    MAX_CONTENT_LENGTH=100 * 1024 * 1024,
+)
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov"}
+ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 LEGACY_FLOWERS = [
     {
@@ -267,9 +282,103 @@ FLOWERS = [
 ]
 
 
+def connect_database():
+    os.makedirs(os.path.dirname(app.config["DATABASE"]), exist_ok=True)
+    connection = sqlite3.connect(app.config["DATABASE"])
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def initialize_database():
+    connection = connect_database()
+    try:
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author TEXT NOT NULL,
+                caption TEXT NOT NULL,
+                media_path TEXT NOT NULL,
+                media_kind TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        post_count = connection.execute("SELECT COUNT(*) FROM posts").fetchone()[0]
+        if post_count == 0:
+            sample_posts = [
+                ("Maya Chen", "First blooms on the balcony this morning. The light did all the work.", FLOWERS[1]["image"], "image"),
+                ("Arjun Patel", "A little color for the neighborhood garden. What are you growing this season?", FLOWERS[3]["image"], "image"),
+                ("Nina Flores", "Found this beauty opening just after the rain.", FLOWERS[4]["image"], "image"),
+            ]
+            connection.executemany(
+                "INSERT INTO posts (author, caption, media_path, media_kind) VALUES (?, ?, ?, ?)",
+                sample_posts,
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def get_posts():
+    initialize_database()
+    connection = connect_database()
+    try:
+        rows = connection.execute("SELECT * FROM posts ORDER BY id DESC").fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        connection.close()
+
+
 @app.route("/")
 def index():
-    return render_template("index.html", flowers=FLOWERS)
+    return render_template("index.html", posts=get_posts())
+
+
+@app.route("/posts", methods=["POST"])
+def create_post():
+    author = request.form.get("author", "").strip()[:40]
+    caption = request.form.get("caption", "").strip()[:500]
+    media = request.files.get("media")
+
+    if not author:
+        flash("Add your name before sharing a post.", "error")
+        return redirect(url_for("index"))
+    if media is None or not media.filename:
+        flash("Choose a photo or video to share.", "error")
+        return redirect(url_for("index"))
+
+    extension = os.path.splitext(secure_filename(media.filename))[1].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        flash("Use a JPG, PNG, GIF, WEBP, MP4, WEBM, or MOV file.", "error")
+        return redirect(url_for("index"))
+
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}{extension}"
+    media.save(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
+    media_kind = "video" if extension in VIDEO_EXTENSIONS else "image"
+
+    initialize_database()
+    connection = connect_database()
+    try:
+        connection.execute(
+            "INSERT INTO posts (author, caption, media_path, media_kind) VALUES (?, ?, ?, ?)",
+            (author, caption, stored_name, media_kind),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    flash("Your post is live.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.route("/flowers")
+def flower_collection():
+    return render_template("flowers.html", flowers=FLOWERS)
 
 
 @app.route("/flower/<slug>")
